@@ -24,51 +24,68 @@ class Ant:
 	def __repr__(self):
 		return str(self)
 
+	def set_status(status):
+		self.status = status
+
 	def move(self):
 		direction = np.random.randint(low = 1, high = NEW_POSITIONS_POSSIBILITIES+1, size = 1)
+		direction = direction[0]
 
 		if (self.is_in_margin()):
-			if (self.can_move(self.row, self.col, direction) == True):
-				self.row, self.col = self.new_position_by_direction(self.row, self.col, direction)
+			if (self.can_move(direction) == False):
+				oposite_direction = self.get_oposite_direction(direction)
+				# print ("not can move ", self.row, self.col, oposite_direction)
+				self.set_new_position_by_direction(oposite_direction)
 			else:
-				oposite_direciont = self.get_oposite_direction(direction)
-				self.row, self.col = self.new_position_by_direction(self.row, self.col, direction)
+				# print ("in margin but can move ", self.row, self.col, direction)
+				self.set_new_position_by_direction(direction)
+		else:
+			# print ("it is not in the margin ", self.row, self.col, direction)
+			self.set_new_position_by_direction(direction)
 
-		self.row, self.col = self.new_position_by_direction(self.row, self.col, direction)
-
-	def new_position_by_direction(self, row, col, new_direction):
+	def set_new_position_by_direction(self, new_direction):
 		if new_direction == 1:
-			return row-1, col-1
+			self.row -= 1
+			self.col -= 1
 		elif new_direction == 2:
-			return row-1, col
+			self.row -= 1
 		elif new_direction == 3:
-			return row-1, col+1
+			self.row -= 1
+			self.col += 1 
 		elif new_direction == 4:
-			return row, col-1
+			self.col -= 1
 		elif new_direction == 5:
-			return row, col+1
+			self.col += 1
 		elif new_direction == 6:
-			return row+1, col-1
+			self.row += 1
+			self.col -= 1
 		elif new_direction == 7:
-			return row+1, col
+			self.row += 1
 		elif new_direction == 8:
-			return row+1, col+1
+			self.row += 1
+			self.col += 1
 		# print ("new_position: ", row, col)
 
-		return row, col
-
-	def can_move(self, row, col, direction):
+	# C = current position
+	# each number represents a future direction in the grid, like above:
+	# | 1 | 2 | 3 |
+	# | 4 | C | 5 |
+	# | 6 | 7 | 8 |
+	def can_move(self, direction):
 		if (direction == 1 or direction == 2 or direction == 3):
-			if (row == 0):
+			if (self.row == 0):
 				return False
-		elif (direction == 1 or direction == 4 or direction == 6):
-			if (col == 0):
+		
+		if (direction == 1 or direction == 4 or direction == 6):
+			if (self.col == 0):
 				return False
-		elif (direction == 6 or direction == 7 or direction == 8):
-			if (row == ENVIROMENT_SIZE-1):
+		
+		if (direction == 6 or direction == 7 or direction == 8):
+			if (self.row == ENVIROMENT_SIZE-1):
 				return False
-		elif (direction == 3 or direction == 5 or direction == 8):
-			if (col == ENVIROMENT_SIZE-1):
+		
+		if (direction == 3 or direction == 5 or direction == 8):
+			if (self.col == ENVIROMENT_SIZE-1):
 				return False
 
 		return True
