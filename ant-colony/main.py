@@ -3,27 +3,32 @@ from ant import Ant
 import pygame
 import numpy as np
 
+ALIVE_ANTS_NUM = 50
+DEAD_ANTS_NUM = 5000
+ENVIROMENT_SIZE = 100
+IT_THRESHOLD = 10000
+
+CLOCK_TICK = 50
+
 BACKGROUND_COLOR = (50, 50, 50)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 WHITE = (250, 250, 250)
 RED = (255, 0, 0)
+YELLOW = (255, 207, 16)
 
-CELL_SIZE = 12
-ANT_SIZE = CELL_SIZE - 4
-ENVIROMENT_SIZE = 50
+CELL_SIZE = 7
+ANT_SIZE = CELL_SIZE - 0.1
 
 SCREEN_MARGIN = 2
 SCREEN_SIZE = (CELL_SIZE*ENVIROMENT_SIZE + SCREEN_MARGIN, CELL_SIZE*ENVIROMENT_SIZE + SCREEN_MARGIN)
-
-ALIVE_ANTS_NUM = 200
-DEAD_ANTS_NUM = 500
 
 status = {
 	"dead_ant": -1,
 	"empty": 0,
 	"available_ant": 1,
-	"alive_overlap_dead": 2
+	"carrying_ant": 2,
+	"alive_overlap_dead": 3
 }
 
 carry_on = True
@@ -37,7 +42,6 @@ def main():
 
 	set_dead_ants()
 	set_alive_ants()
-	# print ("alive_ants: ", list(alive_ants), len(alive_ants))
 
 	pygame.init()
 
@@ -45,11 +49,43 @@ def main():
 
 def update_alive_ants():
 	global alive_ants
-	for ant in alive_ants:
-		# if (ant.row < ENVIROMENT_SIZE-1 and ant.col < ENVIROMENT_SIZE-1):
-		ant.move()
-		# ant.check_cell()
+	global dead_ants
 
+	count_items = 0
+
+	for ant in alive_ants:
+		ant.move()
+		count_items, count_possibilities = ant.look_neighbourhood(grid, dead_ants)
+		probably_pick, probably_drop = 0, 0
+
+		
+
+		if (count_items > 0):	
+			if (ant.status == status["available_ant"]):
+				probably_pick = 1 - (count_items / count_possibilities)
+			if (ant.status == status["carrying_ant"]):
+				probably_drop = (count_items / count_possibilities)
+		else:
+			probably_pick = 1
+			probably_drop = 0
+
+		if (ant.row < ENVIROMENT_SIZE-1  and ant.col < ENVIROMENT_SIZE-1):			
+			if (ant.status == status["available_ant"] and grid[ant.row][ant.col] == status["dead_ant"]):
+				random = np.random.random()
+				if (random < probably_pick):
+					item = [x for x in dead_ants if (x.row == ant.row and x.col == ant.col)]
+					if (len(item) > 0):
+						ant.pick(item, dead_ants)
+						grid[ant.row][ant.col] = status["empty"]
+						print ("PEGOU | n_items: ", count_items, "pp: ", probably_pick, "rand: ",random)
+
+			elif (ant.status == status["carrying_ant"] and grid[ant.row][ant.col] == status["empty"]):
+				random = np.random.random()
+				if (random < probably_drop):
+					ant.drop(dead_ants)
+					grid[ant.row][ant.col] = status["dead_ant"]
+					print ("DROPOU | n_items: ", count_items, "pd: ", probably_drop, "rand: ",random)
+		
 	update_grid()
 
 def reset_grid():
@@ -58,26 +94,25 @@ def reset_grid():
 	grid = [[0]*ENVIROMENT_SIZE for n in range(ENVIROMENT_SIZE)]
 
 def update_grid():
-	global grid
 	global alive_ants
 	global dead_ants
 
 	reset_grid()
 
 	for ant in alive_ants:
-		print ("ant: ", ant)
+		if (ant.row < 0 or ant.col < 0 or ant.row > ENVIROMENT_SIZE-1 or ant.col > ENVIROMENT_SIZE-1):
+			print ("ant: ", ant)
 		if (ant.row >= 0 and ant.row <= ENVIROMENT_SIZE-1 and ant.col >=0 and ant.col <= ENVIROMENT_SIZE-1):
 			if (grid[ant.row][ant.col] == status["dead_ant"]):
-				ant.set_status(status["alive_overlap_dead"])
 				grid[ant.row][ant.col] = status["alive_overlap_dead"]
 			else:
-				grid[ant.row][ant.col] = status["available_ant"]
+				grid[ant.row][ant.col] = ant.status
 
-	for ant in dead_ants:
-		if (grid[ant.row][ant.col] == status["available_ant"]):
-			grid[ant.row][ant.col] = status["alive_overlap_dead"]
+	for item in dead_ants:
+		if (grid[item.row][item.col] == status["available_ant"] or grid[item.row][item.col] == status["carrying_ant"]):
+			grid[item.row][item.col] = status["alive_overlap_dead"]
 		else: 
-			grid[ant.row][ant.col] = status["dead_ant"]
+			grid[item.row][item.col] = status["dead_ant"]
 
 def set_dead_ants():
 	global grid
@@ -89,7 +124,7 @@ def set_dead_ants():
 	dead_ants_positions = list(zip(row, col))
 
 	for row, col in dead_ants_positions:
-		ant = Ant(status["dead_ant"], -1, -1, row, col)
+		ant = Ant(status["dead_ant"], -1, row, col)
 		dead_ants.append(ant)
 
 def set_alive_ants():
@@ -102,7 +137,7 @@ def set_alive_ants():
 	alive_ants_positions = list(zip(row, col))
 
 	for row, col in alive_ants_positions:
-		ant = Ant(status["available_ant"], -1, -1, row, col)
+		ant = Ant(status["available_ant"], -1, row, col)
 		alive_ants.append(ant)
 
 def draw():
@@ -111,6 +146,8 @@ def draw():
 	screen = pygame.display.set_mode(SCREEN_SIZE)
 	pygame.display.set_caption("The first one")
 	clock = pygame.time.Clock()
+
+	it = 0
 
 	screen.fill(BACKGROUND_COLOR)
 
@@ -128,16 +165,24 @@ def draw():
 					pygame.draw.rect(screen, BLACK, [x, y, ANT_SIZE, ANT_SIZE], 0)
 				elif col == status["available_ant"]:
 					pygame.draw.rect(screen, GREEN, [x, y, ANT_SIZE, ANT_SIZE], 0)
-				elif col == status["alive_overlap_dead"]:
+				elif col == status["carrying_ant"]:
 					pygame.draw.rect(screen, RED, [x, y, ANT_SIZE, ANT_SIZE], 0)
+				elif col == status["alive_overlap_dead"]:
+					pygame.draw.rect(screen, YELLOW, [x, y, ANT_SIZE, ANT_SIZE], 0)
 				x = x + CELL_SIZE
 			y = y + CELL_SIZE
 			x = 0
 
+
+
 		update_alive_ants()
-		clock.tick(4)
+		it += 1
+		clock.tick(CLOCK_TICK)
 		pygame.display.flip()
 
+		if (it == IT_THRESHOLD):
+			while (True):
+				print ("CRITÉRIO DE PARADA")
 	pygame.quit()
 
 main()
