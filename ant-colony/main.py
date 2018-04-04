@@ -6,9 +6,9 @@ import numpy as np
 ALIVE_ANTS_NUM = 50
 DEAD_ANTS_NUM = 5000
 ENVIROMENT_SIZE = 100
-IT_THRESHOLD = 10000
+IT_THRESHOLD = 500000
 
-CLOCK_TICK = 50
+CLOCK_TICK = 100
 
 BACKGROUND_COLOR = (50, 50, 50)
 BLACK = (0, 0, 0)
@@ -32,6 +32,7 @@ status = {
 }
 
 carry_on = True
+running = True
 grid = [[0]*ENVIROMENT_SIZE for n in range(ENVIROMENT_SIZE)]
 
 alive_ants = []
@@ -45,7 +46,8 @@ def main():
 
 	pygame.init()
 
-	draw()
+	while (carry_on):
+		draw()
 
 def update_alive_ants():
 	global alive_ants
@@ -57,8 +59,6 @@ def update_alive_ants():
 		ant.move()
 		count_items, count_possibilities = ant.look_neighbourhood(grid, dead_ants)
 		probably_pick, probably_drop = 0, 0
-
-		
 
 		if (count_items > 0):	
 			if (ant.status == status["available_ant"]):
@@ -77,15 +77,15 @@ def update_alive_ants():
 					if (len(item) > 0):
 						ant.pick(item, dead_ants)
 						grid[ant.row][ant.col] = status["empty"]
-						print ("PEGOU | n_items: ", count_items, "pp: ", probably_pick, "rand: ",random)
+						# print ("PEGOU | n_items: ", count_items, "pp: ", probably_pick, "rand: ",random)
 
 			elif (ant.status == status["carrying_ant"] and grid[ant.row][ant.col] == status["empty"]):
 				random = np.random.random()
 				if (random < probably_drop):
 					ant.drop(dead_ants)
 					grid[ant.row][ant.col] = status["dead_ant"]
-					print ("DROPOU | n_items: ", count_items, "pd: ", probably_drop, "rand: ",random)
-		
+					# print ("DROPOU | n_items: ", count_items, "pd: ", probably_drop, "rand: ",random)
+	
 	update_grid()
 
 def reset_grid():
@@ -140,11 +140,47 @@ def set_alive_ants():
 		ant = Ant(status["available_ant"], -1, row, col)
 		alive_ants.append(ant)
 
+def shutdown_process():
+	global alive_ants
+	global dead_ants
+	global running
+
+	count_items = 0
+
+	for ant in alive_ants:
+		if (ant.status == status["carrying_ant"]):	
+			print ("opa")
+			ant.move()
+			count_items, count_possibilities = ant.look_neighbourhood(grid, dead_ants)
+			probably_pick, probably_drop = 0, 0
+
+			if (count_items > 0):	
+				if (ant.status == status["available_ant"]):
+					probably_pick = 1 - (count_items / count_possibilities)
+				if (ant.status == status["carrying_ant"]):
+					probably_drop = (count_items / count_possibilities)
+			else:
+				probably_pick = 1
+				probably_drop = 0
+
+			if (ant.row < ENVIROMENT_SIZE-1  and ant.col < ENVIROMENT_SIZE-1):
+				if (ant.status == status["carrying_ant"] and grid[ant.row][ant.col] == status["empty"]):
+					random = np.random.random()
+					if (random < probably_drop):
+						ant.drop(dead_ants)
+						grid[ant.row][ant.col] = status["dead_ant"]
+	
+	if (len(dead_ants) < DEAD_ANTS_NUM):
+		update_grid()
+	else:
+		del alive_ants[:]
+		update_grid()
+
 def draw():
 	global carry_on
 	global grid
 	screen = pygame.display.set_mode(SCREEN_SIZE)
-	pygame.display.set_caption("The first one")
+	pygame.display.set_caption("Ant Colony")
 	clock = pygame.time.Clock()
 
 	it = 0
@@ -171,18 +207,17 @@ def draw():
 					pygame.draw.rect(screen, YELLOW, [x, y, ANT_SIZE, ANT_SIZE], 0)
 				x = x + CELL_SIZE
 			y = y + CELL_SIZE
-			x = 0
+			x = 0	
 
+		if (it >= IT_THRESHOLD and len(dead_ants) < DEAD_ANTS_NUM):
+			shutdown_process()
+		else:
+			update_alive_ants()
+			it += 1
 
-
-		update_alive_ants()
-		it += 1
 		clock.tick(CLOCK_TICK)
 		pygame.display.flip()
 
-		if (it == IT_THRESHOLD):
-			while (True):
-				print ("CRITÉRIO DE PARADA")
 	pygame.quit()
 
 main()
