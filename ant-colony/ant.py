@@ -152,7 +152,7 @@ class Ant:
 			if (direction == 1 or direction == 4 or direction == 6):
 				self.col = ENVIROMENT_SIZE-1
 
-	def look_neighbourhood(self, grid, dead_ants):
+	def look_neighbourhood(self, grid):
 		count_items = 0
 		count_possibilites = NEW_POSITIONS_POSSIBILITIES*RADIUS_VISION
 
@@ -165,12 +165,8 @@ class Ant:
 
 		return count_items, count_possibilites
 
-	def pick(self, item, dead_ants):
-		dead_ants.remove(item[0])
-		self.status = 2
+	def pick(self):
+		self.status = status["carrying_ant"]
 
-	def drop(self, dead_ants):
-		item = Ant(-1, -1, self.row, self.col)
-		self.status = 1
-
-		dead_ants.append(item)
+	def drop(self):
+		self.status = status["available_ant"]

@@ -8,7 +8,7 @@ DEAD_ANTS_NUM = 5000
 ENVIROMENT_SIZE = 100
 IT_THRESHOLD = 500000
 
-CLOCK_TICK = 100
+CLOCK_TICK = 300
 
 BACKGROUND_COLOR = (50, 50, 50)
 BLACK = (0, 0, 0)
@@ -32,7 +32,6 @@ status = {
 }
 
 carry_on = True
-running = True
 grid = [[0]*ENVIROMENT_SIZE for n in range(ENVIROMENT_SIZE)]
 
 alive_ants = []
@@ -40,24 +39,39 @@ dead_ants = []
 
 def main():
 	global grid
+	global carry_on
 
 	set_dead_ants()
 	set_alive_ants()
 
 	pygame.init()
 
+	screen = pygame.display.set_mode(SCREEN_SIZE)
+	pygame.display.set_caption("Ant Colony")
+
+	screen.fill(BACKGROUND_COLOR)
+
+	it = 0
 	while (carry_on):
-		draw()
+		if (it >= IT_THRESHOLD and len(dead_ants) < DEAD_ANTS_NUM):
+			shutdown_process()
+		else:
+			if (it == 0 or it == 100000 or it == 300000 or it == 499999):
+				print ("it: ", it)
+				draw(screen)
+			update_alive_ants()
+			it += 1
+			pygame.display.flip()
 
 def update_alive_ants():
 	global alive_ants
-	global dead_ants
-
+	global grid
 	count_items = 0
 
 	for ant in alive_ants:
 		ant.move()
-		count_items, count_possibilities = ant.look_neighbourhood(grid, dead_ants)
+
+		count_items, count_possibilities = ant.look_neighbourhood(grid)
 		probably_pick, probably_drop = 0, 0
 
 		if (count_items > 0):	
@@ -73,50 +87,17 @@ def update_alive_ants():
 			if (ant.status == status["available_ant"] and grid[ant.row][ant.col] == status["dead_ant"]):
 				random = np.random.random()
 				if (random < probably_pick):
-					item = [x for x in dead_ants if (x.row == ant.row and x.col == ant.col)]
-					if (len(item) > 0):
-						ant.pick(item, dead_ants)
+						ant.pick()
 						grid[ant.row][ant.col] = status["empty"]
-						# print ("PEGOU | n_items: ", count_items, "pp: ", probably_pick, "rand: ",random)
-
+					
 			elif (ant.status == status["carrying_ant"] and grid[ant.row][ant.col] == status["empty"]):
 				random = np.random.random()
 				if (random < probably_drop):
-					ant.drop(dead_ants)
+					ant.drop()
 					grid[ant.row][ant.col] = status["dead_ant"]
-					# print ("DROPOU | n_items: ", count_items, "pd: ", probably_drop, "rand: ",random)
-	
-	update_grid()
-
-def reset_grid():
-	global grid
-
-	grid = [[0]*ENVIROMENT_SIZE for n in range(ENVIROMENT_SIZE)]
-
-def update_grid():
-	global alive_ants
-	global dead_ants
-
-	reset_grid()
-
-	for ant in alive_ants:
-		if (ant.row < 0 or ant.col < 0 or ant.row > ENVIROMENT_SIZE-1 or ant.col > ENVIROMENT_SIZE-1):
-			print ("ant: ", ant)
-		if (ant.row >= 0 and ant.row <= ENVIROMENT_SIZE-1 and ant.col >=0 and ant.col <= ENVIROMENT_SIZE-1):
-			if (grid[ant.row][ant.col] == status["dead_ant"]):
-				grid[ant.row][ant.col] = status["alive_overlap_dead"]
-			else:
-				grid[ant.row][ant.col] = ant.status
-
-	for item in dead_ants:
-		if (grid[item.row][item.col] == status["available_ant"] or grid[item.row][item.col] == status["carrying_ant"]):
-			grid[item.row][item.col] = status["alive_overlap_dead"]
-		else: 
-			grid[item.row][item.col] = status["dead_ant"]
 
 def set_dead_ants():
 	global grid
-	global dead_ants
 
 	row = np.random.randint(low = 0, high = ENVIROMENT_SIZE-1, size = DEAD_ANTS_NUM)
 	col = np.random.randint(low = 0, high = ENVIROMENT_SIZE-1, size = DEAD_ANTS_NUM)
@@ -125,7 +106,8 @@ def set_dead_ants():
 
 	for row, col in dead_ants_positions:
 		ant = Ant(status["dead_ant"], -1, row, col)
-		dead_ants.append(ant)
+		grid[row][col] = status["dead_ant"]
+			
 
 def set_alive_ants():
 	global grid
@@ -142,16 +124,13 @@ def set_alive_ants():
 
 def shutdown_process():
 	global alive_ants
-	global dead_ants
-	global running
 
 	count_items = 0
 
 	for ant in alive_ants:
-		if (ant.status == status["carrying_ant"]):	
-			print ("opa")
+		if (ant.status == status["carrying_ant"]):
 			ant.move()
-			count_items, count_possibilities = ant.look_neighbourhood(grid, dead_ants)
+			count_items, count_possibilities = ant.look_neighbourhood(grid)
 			probably_pick, probably_drop = 0, 0
 
 			if (count_items > 0):	
@@ -167,57 +146,29 @@ def shutdown_process():
 				if (ant.status == status["carrying_ant"] and grid[ant.row][ant.col] == status["empty"]):
 					random = np.random.random()
 					if (random < probably_drop):
-						ant.drop(dead_ants)
+						ant.drop()
 						grid[ant.row][ant.col] = status["dead_ant"]
-	
-	if (len(dead_ants) < DEAD_ANTS_NUM):
-		update_grid()
-	else:
-		del alive_ants[:]
-		update_grid()
 
-def draw():
+
+def draw(screen):
 	global carry_on
 	global grid
-	screen = pygame.display.set_mode(SCREEN_SIZE)
-	pygame.display.set_caption("Ant Colony")
-	clock = pygame.time.Clock()
 
-	it = 0
-
-	screen.fill(BACKGROUND_COLOR)
-
-	while (carry_on):
-		for event in pygame.event.get():
-			if event.type == pygame.QUIT:
-				carry_on = False
-
-		x, y = 0, 0
-		for row in grid:
-			for col in row:
-				if col == status["empty"]:
-					pygame.draw.rect(screen, BACKGROUND_COLOR, [x, y, ANT_SIZE, ANT_SIZE], 0)
-				elif col == status["dead_ant"]:
-					pygame.draw.rect(screen, BLACK, [x, y, ANT_SIZE, ANT_SIZE], 0)
-				elif col == status["available_ant"]:
-					pygame.draw.rect(screen, GREEN, [x, y, ANT_SIZE, ANT_SIZE], 0)
-				elif col == status["carrying_ant"]:
-					pygame.draw.rect(screen, RED, [x, y, ANT_SIZE, ANT_SIZE], 0)
-				elif col == status["alive_overlap_dead"]:
-					pygame.draw.rect(screen, YELLOW, [x, y, ANT_SIZE, ANT_SIZE], 0)
-				x = x + CELL_SIZE
-			y = y + CELL_SIZE
-			x = 0	
-
-		if (it >= IT_THRESHOLD and len(dead_ants) < DEAD_ANTS_NUM):
-			shutdown_process()
-		else:
-			update_alive_ants()
-			it += 1
-
-		clock.tick(CLOCK_TICK)
-		pygame.display.flip()
-
-	pygame.quit()
+	x, y = 0, 0
+	for row in grid:
+		for col in row:
+			if col == status["empty"]:
+				pygame.draw.rect(screen, BACKGROUND_COLOR, [x, y, ANT_SIZE, ANT_SIZE], 0)
+			elif col == status["dead_ant"]:
+				pygame.draw.rect(screen, BLACK, [x, y, ANT_SIZE, ANT_SIZE], 0)
+			elif col == status["available_ant"]:
+				pygame.draw.rect(screen, GREEN, [x, y, ANT_SIZE, ANT_SIZE], 0)
+			elif col == status["carrying_ant"]:
+				pygame.draw.rect(screen, RED, [x, y, ANT_SIZE, ANT_SIZE], 0)
+			elif col == status["alive_overlap_dead"]:
+				pygame.draw.rect(screen, YELLOW, [x, y, ANT_SIZE, ANT_SIZE], 0)
+			x = x + CELL_SIZE
+		y = y + CELL_SIZE
+		x = 0	
 
 main()
