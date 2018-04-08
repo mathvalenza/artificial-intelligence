@@ -3,7 +3,7 @@ import numpy as np
 
 NEW_POSITIONS_POSSIBILITIES = 8
 ENVIROMENT_SIZE = 100
-RADIUS_VISION = 1
+RADIUS_VISION = 5
 
 status = {
 	"dead_ant": -1,
@@ -14,6 +14,7 @@ status = {
 }
 
 class Ant:
+	radius_vision = RADIUS_VISION
 	status = 0
 	last_direction = 0
 	row = 0
@@ -154,15 +155,17 @@ class Ant:
 
 	def look_neighbourhood(self, grid):
 		count_items = 0
-		count_possibilites = NEW_POSITIONS_POSSIBILITIES*RADIUS_VISION
+		count_possibilites = NEW_POSITIONS_POSSIBILITIES*self.radius_vision
 
-		for i in range(-RADIUS_VISION, RADIUS_VISION+1, 1):
-			for j in range(-RADIUS_VISION, RADIUS_VISION+1, 1):
+		for i in range(-self.radius_vision, self.radius_vision+1, 1):
+			for j in range(-self.radius_vision, self.radius_vision+1, 1):
 				if (self.row+i < ENVIROMENT_SIZE and self.col+j < ENVIROMENT_SIZE-1):
 					if (i != 0 or j != 0):
-						if (grid[self.row+i][self.col+j] == status["dead_ant"] or grid[self.row+i][self.col+j] == status["alive_overlap_dead"]):
+						if (grid[self.row+i][self.col+j] == status["dead_ant"]):
 							count_items += 1
+							# print ("item em (%d, %d)", i, j)
 
+		# print ("---- total: ", count_items, " ------", count_possibilites)
 		return count_items, count_possibilites
 
 	def pick(self):

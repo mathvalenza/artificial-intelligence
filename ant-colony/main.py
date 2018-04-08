@@ -2,13 +2,12 @@
 from ant import Ant
 import pygame
 import numpy as np
+import time
 
 ALIVE_ANTS_NUM = 50
 DEAD_ANTS_NUM = 5000
 ENVIROMENT_SIZE = 100
 IT_THRESHOLD = 500000
-
-CLOCK_TICK = 300
 
 BACKGROUND_COLOR = (50, 50, 50)
 BLACK = (0, 0, 0)
@@ -52,49 +51,73 @@ def main():
 	screen.fill(BACKGROUND_COLOR)
 
 	it = 0
+
+	wait_for_print = True
 	while (carry_on):
-		if (it >= IT_THRESHOLD and len(dead_ants) < DEAD_ANTS_NUM):
+		if (it == IT_THRESHOLD):
 			shutdown_process()
-		else:
-			if (it == 0 or it == 100000 or it == 300000 or it == 499999):
-				print ("it: ", it)
-				draw(screen)
-			update_alive_ants()
-			it += 1
+			draw(screen)
 			pygame.display.flip()
+			it += 1
+		else:
+			it += 1
+			print ("Iteração número: ", it)
+			update_alive_ants()
+			if (it == 1 or np.fmod(it, 1000) == 0):
+				draw(screen)
+				pygame.display.flip()
+				wait_for_print = True
+				while (wait_for_print): 
+					events = pygame.event.get()
+					for event in events:
+						if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE):
+							wait_for_print = False
 
 def update_alive_ants():
 	global alive_ants
 	global grid
 	count_items = 0
 
-	for ant in alive_ants:
-		ant.move()
-
+	for ant in alive_ants:		
 		count_items, count_possibilities = ant.look_neighbourhood(grid)
 		probably_pick, probably_drop = 0, 0
 
 		if (count_items > 0):	
 			if (ant.status == status["available_ant"]):
-				probably_pick = 1 - (count_items / count_possibilities)
+				if (ant.radius_vision == 1):
+					probably_pick = 1 - (count_items / count_possibilities)*1.5
+				else:
+					probably_pick = 1 - (count_items / count_possibilities)
 			if (ant.status == status["carrying_ant"]):
-				probably_drop = (count_items / count_possibilities)
+				if (ant.radius_vision == 1):
+					probably_drop = (count_items / count_possibilities)*1.5
+				else:
+					probably_drop = (count_items / count_possibilities)
 		else:
 			probably_pick = 1
 			probably_drop = 0
 
-		if (ant.row < ENVIROMENT_SIZE-1  and ant.col < ENVIROMENT_SIZE-1):			
-			if (ant.status == status["available_ant"] and grid[ant.row][ant.col] == status["dead_ant"]):
-				random = np.random.random()
-				if (random < probably_pick):
-						ant.pick()
-						grid[ant.row][ant.col] = status["empty"]
-					
-			elif (ant.status == status["carrying_ant"] and grid[ant.row][ant.col] == status["empty"]):
-				random = np.random.random()
-				if (random < probably_drop):
-					ant.drop()
-					grid[ant.row][ant.col] = status["dead_ant"]
+		if (ant.status == status["available_ant"] and grid[ant.row][ant.col] == status["dead_ant"]):
+			random = np.random.uniform(0.0, 1.0)
+			# print ("PICK ? ", probably_pick, random)
+			if (random < probably_pick):
+					ant.pick()
+					grid[ant.row][ant.col] = status["empty"]
+
+		elif (ant.status == status["carrying_ant"] and grid[ant.row][ant.col] != status["dead_ant"]):
+			random = np.random.uniform(0.0, 1.0)
+			# print ("DROP ? ", probably_drop, random)
+			if (random < probably_drop):
+				ant.drop()
+				grid[ant.row][ant.col] = status["dead_ant"]
+
+		if (grid[ant.row][ant.col] == status["available_ant"] or grid[ant.row][ant.col] == status["carrying_ant"]):
+			grid[ant.row][ant.col] = status["empty"]
+
+		ant.move()
+
+		if (grid[ant.row][ant.col] == status["empty"]):
+			grid[ant.row][ant.col] = ant.status
 
 def set_dead_ants():
 	global grid
@@ -123,32 +146,25 @@ def set_alive_ants():
 		alive_ants.append(ant)
 
 def shutdown_process():
-	global alive_ants
-
-	count_items = 0
-
 	for ant in alive_ants:
-		if (ant.status == status["carrying_ant"]):
-			ant.move()
-			count_items, count_possibilities = ant.look_neighbourhood(grid)
-			probably_pick, probably_drop = 0, 0
+		count_items, count_possibilities = ant.look_neighbourhood(grid)
+		probably_drop = 0
 
-			if (count_items > 0):	
-				if (ant.status == status["available_ant"]):
-					probably_pick = 1 - (count_items / count_possibilities)
-				if (ant.status == status["carrying_ant"]):
-					probably_drop = (count_items / count_possibilities)
+		if (count_items > 0):
+			if (ant.radius_vision == 1):
+				probably_drop = (count_items / count_possibilities)*1.5
 			else:
-				probably_pick = 1
-				probably_drop = 0
+				probably_drop = (count_items / count_possibilities)
+		else:
+			probably_drop = 0
 
-			if (ant.row < ENVIROMENT_SIZE-1  and ant.col < ENVIROMENT_SIZE-1):
-				if (ant.status == status["carrying_ant"] and grid[ant.row][ant.col] == status["empty"]):
-					random = np.random.random()
-					if (random < probably_drop):
-						ant.drop()
-						grid[ant.row][ant.col] = status["dead_ant"]
-
+		random = np.random.uniform(0.0, 1.0)
+			# print ("DROP ? ", probably_drop, random)
+		if (random < probably_drop):
+			ant.drop()
+			grid[ant.row][ant.col] = status["dead_ant"]
+		else:
+			grid[ant.row][ant.col] = status["empty"]
 
 def draw(screen):
 	global carry_on
