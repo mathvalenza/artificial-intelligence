@@ -84,15 +84,9 @@ def update_alive_ants():
 
 		if (count_items > 0):	
 			if (ant.status == status["available_ant"]):
-				if (ant.radius_vision == 1):
-					probably_pick = 1 - (count_items / count_possibilities)*1.5
-				else:
-					probably_pick = 1 - (count_items / count_possibilities)
+				probably_pick = 1 - (count_items / count_possibilities)*1.5
 			if (ant.status == status["carrying_ant"]):
-				if (ant.radius_vision == 1):
-					probably_drop = (count_items / count_possibilities)*1.5
-				else:
-					probably_drop = (count_items / count_possibilities)
+				probably_drop = (count_items / count_possibilities)
 		else:
 			probably_pick = 1
 			probably_drop = 0
