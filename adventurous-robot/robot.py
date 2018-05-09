@@ -5,11 +5,14 @@ import numpy as np
 
 screen = pygame.display.set_mode(constants.SCREEN_SIZE)
 
+steps = 0
+
 class Node:
 	row = -1
 	col = -1
 	precedent = -1
 	cost = -1
+	cost_a_star = -1
 
 	def __init__(self, row, col, precedent, cost):
 		self.row = row
@@ -32,6 +35,12 @@ class Robot:
 		pygame.display.set_caption("Adventurous Robot")
 
 	def move_dfs(self, grid):
+		global steps
+		steps += 1 
+
+		self.apply_expand_function_in_grid(self.node.row, self.node.col, grid)
+		self.way.append((self.node.row, self.node.col))
+
 		if (self.can_move('up', self.node, grid) and self.is_not_expanded(grid, self.node.row-1, self.node.col)):
 			self.node.row -= 1
 		elif (self.can_move('right', self.node, grid) and self.is_not_expanded(grid, self.node.row, self.node.col+1)):
@@ -41,19 +50,17 @@ class Robot:
 		elif (self.can_move('left', self.node, grid) and self.is_not_expanded(grid, self.node.row, self.node.col-1)):
 			self.node.col -= 1
 
-		self.apply_expand_function_in_grid(self.node.row, self.node.col, grid)
-		self.way.append((self.node.row, self.node.col))
-
 		self.draw(screen, grid)
 		pygame.display.flip()
 
 		if (self.is_in_mark_position(grid, self.node)):
 			while (True):
-				print ("I got the way")
+				print ("I've got the way in %d steps" % steps)
 
 		self.move_dfs(grid)
 
 	def move_bfs(self, root_row, root_col, grid):
+		global steps
 		visited_bfs = []
 		to_visit_bfs = []
 		root = Node(root_row, root_col, -1, 1)
@@ -62,6 +69,7 @@ class Robot:
 		to_visit_bfs.append(root)
 
 		while(to_visit_bfs):
+			steps += 1 
 			node = to_visit_bfs.pop(0)
 			visited_bfs.append(node)
 			border_bfs = self.expand(node, cost, grid)
@@ -84,9 +92,10 @@ class Robot:
 			self.draw(screen, grid)
 			pygame.display.flip()
 			time.sleep(2)
-			print ("showing final result...")
+			print ("I've got the way in %d steps" % steps)
 
 	def move_uniform_cost(self, root_row, root_col, grid):
+		global steps
 		visited_uniform_cost = []
 		to_visit_uniform_cost = []
 		root = Node(root_row, root_col, -1, self.get_cost(root_row, root_col, grid))
@@ -94,6 +103,7 @@ class Robot:
 		to_visit_uniform_cost.append(root)
 
 		while(to_visit_uniform_cost):
+			steps += 1
 			node = to_visit_uniform_cost.pop(0)
 			visited_uniform_cost.append(node)
 			border_uniform_cost = self.expand(node, node.cost, grid)
@@ -119,9 +129,10 @@ class Robot:
 			self.draw(screen, grid)
 			pygame.display.flip()
 			time.sleep(2)
-			print ("showing final result...")
+			print ("I've got the way in %d steps" % steps)
 
 	def move_a_star(self, root_row, root_col, grid, final_row, final_col):
+		global steps
 		visited_a_star = []
 		to_visit_a_star = []
 		root = Node(root_row, root_col, -1, self.get_cost(root_row, root_col, grid))
@@ -129,8 +140,9 @@ class Robot:
 		to_visit_a_star.append(root)
 
 		while(to_visit_a_star):
+			steps += 1
 			node = to_visit_a_star.pop(0)
-			node.cost += self.get_estimate_cost(node, grid, final_row, final_col)
+			# node.cost += self.get_estimate_cost(node, grid, final_row, final_col)
 
 			visited_a_star.append(node)
 
@@ -139,10 +151,11 @@ class Robot:
 			print ('atual: ', node)
 
 			for b_node in border_a_star:
-				origin_to_here_cost = self.get_cost(b_node.row, b_node.col, grid)
+				origin_to_here_cost = b_node.cost
+				# origin_to_here_cost = b_node.cost
 				here_to_destiny_cost = self.get_estimate_cost(b_node, grid, final_row, final_col)
 
-				b_node.cost = origin_to_here_cost + 5*here_to_destiny_cost
+				b_node.cost_a_star = origin_to_here_cost + here_to_destiny_cost
 
 				# if (b_node.cost < node.cost):
 				# 	b_node.cost = node.cost
@@ -156,7 +169,7 @@ class Robot:
 				elif (self.is_not_expanded(grid, b_node.row, b_node.col) and self.is_not_in_to_visit(b_node, to_visit_a_star)):
 					self.apply_expand_function_in_grid(node.row, node.col, grid)
 					to_visit_a_star.append(b_node)
-					to_visit_a_star.sort(key=lambda x: x.cost)
+					to_visit_a_star.sort(key=lambda x: x.cost_a_star)
 
 					
 					for n in to_visit_a_star:
@@ -173,7 +186,7 @@ class Robot:
 			self.draw(screen, grid)
 			pygame.display.flip()
 			time.sleep(2)
-			print ("showing final result...")
+			print ("I've got the way in %d" % steps)
 
 	def expand(self, node, cost, grid):
 		row, col = node.row, node.col
@@ -222,16 +235,27 @@ class Robot:
 			grid[row][col] += 10
 
 	def get_cost(self, row, col, grid):
-		if (grid[row][col] == constants.FLOOR or grid[row][col] == 10 + constants.FLOOR):
-			return constants.FLOOR_COST
-		elif (grid[row][col] == constants.MOUNTAIN or grid[row][col] == 10 + constants.MOUNTAIN):
-			return constants.MOUNTAIN_COST
-		elif (grid[row][col] == constants.WATER or grid[row][col] == 10 + constants.WATER):
-			return constants.WATER_COST
-		elif (grid[row][col] == constants.FIRE or grid[row][col] == 10 + constants.FIRE):
-			return constants.FIRE_COST
+		print ("row, col, grid", row, col, grid[row][col])
 
-		return 0
+		if (self.is_not_expanded(grid, row, col)):
+			if (grid[row][col] == constants.FLOOR):
+				return constants.FLOOR_COST
+			elif (grid[row][col] == constants.MOUNTAIN or grid[row][col]):
+				return constants.MOUNTAIN_COST
+			elif (grid[row][col] == constants.WATER or grid[row][col]):
+				return constants.WATER_COST
+			elif (grid[row][col] == constants.FIRE or grid[row][col]):
+				return constants.FIRE_COST
+
+		for i in range(10):
+			if (grid[row][col] == constants.FLOOR*i):
+				return constants.FLOOR_COST
+			elif (grid[row][col] == constants.MOUNTAIN or grid[row][col]*i):
+				return constants.MOUNTAIN_COST
+			elif (grid[row][col] == constants.WATER or grid[row][col]*i):
+				return constants.WATER_COST
+			elif (grid[row][col] == constants.FIRE or grid[row][col]*i):
+				return constants.FIRE_COST
 
 	def get_estimate_cost(self, node, grid, final_row, final_col):
 		row_distance = np.abs(final_row - node.row)
